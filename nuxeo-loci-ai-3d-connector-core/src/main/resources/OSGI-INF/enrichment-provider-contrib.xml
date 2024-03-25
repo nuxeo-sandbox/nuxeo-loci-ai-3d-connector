@@ -1,0 +1,20 @@
+<?xml version="1.0"?>
+<component name="org.nuxeo.labs.loci.ai.core.enrichment" version="1.0">
+
+    <require>org.nuxeo.ai.services.AIComponent</require>
+
+    <!-- Define a loci.ai enrichment service -->
+    <extension point="enrichment" target="org.nuxeo.ai.services.AIComponent">
+        <enrichment name="ai.loci" kind="/classification/imageLabels" maxSize="100000000"
+                    class="org.nuxeo.labs.loci.ai.core.enricher.LociAiEnrichmentProvider">
+            <mimeTypes>
+                <mimeType name="model/gltf-binary"/>
+            </mimeTypes>
+            <option name="uri">https://prod.loci-api.com/tag/tag-3d-asset</option>
+            <option name="headers.default">false</option>
+            <option name="minConfidence">0.75</option>
+            <option name="apiKey">${nuxeo.ai.loci.apiKey}</option>
+        </enrichment>
+    </extension>
+
+</component>
