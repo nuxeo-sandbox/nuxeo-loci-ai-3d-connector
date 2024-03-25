@@ -11,6 +11,8 @@ public class LociResponse {
 
     public List<String> tags;
 
+    public LociResponse() {};
+
     public LociResponse(String filename, List<String> tags) {
         this.filename = filename;
         this.tags = tags;

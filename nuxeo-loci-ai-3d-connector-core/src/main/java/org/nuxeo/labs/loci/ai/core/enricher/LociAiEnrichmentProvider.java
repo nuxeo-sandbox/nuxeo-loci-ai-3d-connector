@@ -3,42 +3,78 @@ package org.nuxeo.labs.loci.ai.core.enricher;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.http.HttpResponse;
+import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpUriRequest;
 import org.apache.http.client.methods.RequestBuilder;
 import org.apache.http.entity.ContentType;
-import org.apache.http.entity.mime.HttpMultipartMode;
 import org.apache.http.entity.mime.MultipartEntityBuilder;
+import org.apache.http.impl.client.CloseableHttpClient;
+import org.apache.http.impl.client.HttpClientBuilder;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.nuxeo.ai.enrichment.EnrichmentDescriptor;
 import org.nuxeo.ai.enrichment.EnrichmentMetadata;
 import org.nuxeo.ai.metadata.AIMetadata;
 import org.nuxeo.ai.pipes.types.BlobTextFromDocument;
 import org.nuxeo.ai.rest.RestEnrichmentProvider;
-import org.nuxeo.ecm.core.api.Blob;
 import org.nuxeo.ecm.core.api.CloseableFile;
 import org.nuxeo.ecm.core.api.NuxeoException;
+import org.nuxeo.ecm.core.blob.ManagedBlob;
 import org.nuxeo.labs.loci.ai.core.model.LociResponse;
 
-import java.io.File;
 import java.io.IOException;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 
-import static org.nuxeo.ai.enrichment.EnrichmentUtils.getBlobFromProvider;
+import static org.nuxeo.ai.rest.RestClient.OPTION_URI;
 
 public class LociAiEnrichmentProvider extends RestEnrichmentProvider {
+
+    private static final Logger log = LogManager.getLogger(LociAiEnrichmentProvider.class);
 
     public static final String PARAM_API_SECRET = "apiKey";
 
     protected static final ObjectMapper objectMapper = new ObjectMapper();
 
-    public String apiKey;
+    public String uri;
 
+    public String method;
+
+    public String apiKey;
 
     @Override
     public void init(EnrichmentDescriptor descriptor) {
         super.init(descriptor);
         this.apiKey = descriptor.options.get(PARAM_API_SECRET);
+        this.uri = descriptor.options.get(OPTION_URI);
+        this.method = descriptor.options.getOrDefault("methodName", "POST");
+    }
+
+    @Override
+    public Collection<EnrichmentMetadata> enrich(BlobTextFromDocument blobTextFromDoc) {
+        RequestBuilder requestBuilder = RequestBuilder.create(this.method);
+        requestBuilder.setUri(this.uri);
+        // Add request header
+        requestBuilder.addHeader("accept", "application/json");
+        requestBuilder.addHeader("x-api-key",apiKey);
+
+        HttpUriRequest request = prepareRequest(requestBuilder,blobTextFromDoc);
+
+        try (CloseableHttpClient httpClient = HttpClientBuilder.create().build()) {
+            try (CloseableHttpResponse response = httpClient.execute(request)) {
+                int statusCode = response.getStatusLine().getStatusCode();
+                if (statusCode >= 200 && statusCode < 300) {
+                    return this.handleResponse(response, blobTextFromDoc);
+                } else {
+                    String error = getContent(response);
+                    log.warn(String.format("Unsuccessful call to rest api %s, status is %d, error is %s", this.uri, statusCode, error));
+                    return Collections.emptyList();
+                }
+            }
+        } catch (IOException e) {
+            throw new NuxeoException(e);
+        }
     }
 
     @Override
@@ -47,27 +83,21 @@ public class LociAiEnrichmentProvider extends RestEnrichmentProvider {
             throw new NuxeoException("Loci.ai only supports one blob asset at a time.");
         }
 
-        Blob blob = blobTextFromDocument.getBlobs().values().stream().findFirst().get();
+        ManagedBlob blob = blobTextFromDocument.getBlobs().values().stream().findFirst().get();
 
-        CloseableFile closeableFile;
-        try {
-            closeableFile = blob.getCloseableFile();
+        try{
+            CloseableFile closeableFile = blob.getCloseableFile();
+            // Use the multipart builder
+            MultipartEntityBuilder multipartBuilder = MultipartEntityBuilder.create();
+            multipartBuilder.setContentType(ContentType.MULTIPART_FORM_DATA);
+            multipartBuilder.addBinaryBody("asset_file", closeableFile.getFile(),
+                    ContentType.DEFAULT_BINARY, "thefile.glb");
+            requestBuilder.setEntity(multipartBuilder.build());
+            // Build the request
+            return requestBuilder.build();
         } catch (IOException e) {
             throw new NuxeoException(e);
         }
-
-        // Add request header
-        requestBuilder.addHeader("accept", "application/json");
-        requestBuilder.addHeader("x-api-key",apiKey);
-
-        // Use the multipart builder
-        MultipartEntityBuilder multipartBuilder = MultipartEntityBuilder.create();
-        multipartBuilder.setContentType(ContentType.MULTIPART_FORM_DATA);
-        multipartBuilder.addBinaryBody("asset_file", closeableFile.getFile(), ContentType.DEFAULT_BINARY, blob.getFilename());
-        requestBuilder.setEntity(multipartBuilder.build());
-
-        // Build the request
-        return requestBuilder.build();
     }
 
     @Override
@@ -87,9 +117,8 @@ public class LociAiEnrichmentProvider extends RestEnrichmentProvider {
      */
     protected Collection<EnrichmentMetadata> processResponseProperties(List<String> tags, String rawKey,
                                                                        BlobTextFromDocument blobTextFromDoc) {
-
-        List<EnrichmentMetadata.Label> labels = tags.stream().map(tag -> new AIMetadata.Label(tag,1.0f)).toList();
-
+        List<EnrichmentMetadata.Label> labels =
+                tags.stream().map(tag -> new AIMetadata.Label(tag,1.0f)).toList();
         // Return the result
         return Collections.singletonList(
                 new EnrichmentMetadata.Builder(kind, name, blobTextFromDoc).withLabels(asLabels(labels))
