@@ -20,7 +20,9 @@ import org.nuxeo.ai.rest.RestEnrichmentProvider;
 import org.nuxeo.ecm.core.api.CloseableFile;
 import org.nuxeo.ecm.core.api.NuxeoException;
 import org.nuxeo.ecm.core.blob.ManagedBlob;
+import org.nuxeo.ecm.platform.mimetype.interfaces.MimetypeRegistry;
 import org.nuxeo.labs.loci.ai.core.model.LociResponse;
+import org.nuxeo.runtime.api.Framework;
 
 import java.io.IOException;
 import java.util.Collection;
@@ -85,13 +87,18 @@ public class LociAiEnrichmentProvider extends RestEnrichmentProvider {
 
         ManagedBlob blob = blobTextFromDocument.getBlobs().values().stream().findFirst().get();
 
+        //get file extension from blob mime-type
+        String mimetype = blob.getMimeType();
+        MimetypeRegistry mimetypeRegistry = Framework.getService(MimetypeRegistry.class);
+        String extension = mimetypeRegistry.getMimetypeEntryByMimeType(mimetype).getExtensions().get(0);
+
         try{
             CloseableFile closeableFile = blob.getCloseableFile();
             // Use the multipart builder
             MultipartEntityBuilder multipartBuilder = MultipartEntityBuilder.create();
             multipartBuilder.setContentType(ContentType.MULTIPART_FORM_DATA);
             multipartBuilder.addBinaryBody("asset_file", closeableFile.getFile(),
-                    ContentType.DEFAULT_BINARY, "thefile.glb");
+                    ContentType.DEFAULT_BINARY, String.format("%s.%s",closeableFile.getFile().getName(),extension));
             requestBuilder.setEntity(multipartBuilder.build());
             // Build the request
             return requestBuilder.build();
