@@ -97,7 +97,7 @@ public class LociAiEnrichmentProvider extends RestEnrichmentProvider {
             // Use the multipart builder
             MultipartEntityBuilder multipartBuilder = MultipartEntityBuilder.create();
             multipartBuilder.setContentType(ContentType.MULTIPART_FORM_DATA);
-            multipartBuilder.addBinaryBody("asset_file", closeableFile.getFile(),
+            multipartBuilder.addBinaryBody("file", closeableFile.getFile(),
                     ContentType.DEFAULT_BINARY, String.format("%s.%s",closeableFile.getFile().getName(),extension));
             requestBuilder.setEntity(multipartBuilder.build());
             // Build the request
