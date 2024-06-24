@@ -10,7 +10,7 @@
             <mimeTypes>
                 <mimeType name="model/gltf-binary"/>
             </mimeTypes>
-            <option name="uri">https://prod.loci-api.com/tag/tag-3d-asset</option>
+            <option name="uri">https://loci-api.com/3d/tag</option>
             <option name="headers.default">false</option>
             <option name="minConfidence">0.75</option>
             <option name="apiKey">${nuxeo.ai.loci.apiKey}</option>
