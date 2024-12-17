@@ -8,7 +8,7 @@ import org.nuxeo.labs.loci.ai.core.enricher.LociAiEnrichmentProvider;
 import org.nuxeo.runtime.test.runner.Features;
 import org.nuxeo.runtime.test.runner.FeaturesRunner;
 
-import javax.inject.Inject;
+import jakarta.inject.Inject;
 
 @RunWith(FeaturesRunner.class)
 @Features({TestFeature.class })
