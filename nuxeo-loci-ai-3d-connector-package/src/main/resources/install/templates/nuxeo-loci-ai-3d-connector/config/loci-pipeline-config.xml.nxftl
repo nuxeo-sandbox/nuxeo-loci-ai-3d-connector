@@ -2,7 +2,7 @@
 <component name="org.nuxeo.labs.loci.ai.pipeline" version="1.0">
 
         <extension point="pipes" target="org.nuxeo.ai.Pipeline">
-            <pipe id="pipe.dam.3d" enabled="${nuxeo.ai.threed.enabled}" postCommit="true">
+            <pipe id="pipe.dam.3d" enabled="${nuxeo.ai.threed.enabled:=false}" postCommit="true">
                 <supplier>
                     <event name="documentCreated">
                         <filter class="org.nuxeo.ai.pipes.filters.NotSystemOrProxyFilter"/>
